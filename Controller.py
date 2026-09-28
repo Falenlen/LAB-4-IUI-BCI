@@ -6,6 +6,7 @@ This is a good file to read if you want to understand *when* a move is
 accepted, but most usability tweaks (arrow layout, colors, sizes) belong in
 UI.py and Config.py instead.
 """
+import pygame as pg
 from Config import VEC, WALK_SPEED_PX_S, MOVE_COOLDOWN_S
 
 
@@ -27,6 +28,7 @@ class Controller:
         self.heading = "E"
         self.armed_dir = None
         self.bci = bci
+        self.control_mode = "keyboard"
 
         # --- move debouncing -------------------------------------------------
         # After a successful step we ignore new directions for
@@ -69,7 +71,19 @@ class Controller:
         if self._try_step(d):
             self._cd_left = self._move_cooldown
 
+    def handle_keyboard(self, direction):
+        """Apply one keyboard direction as a single movement."""
+        self.armed_dir = direction
+
+        if self._cd_left > 0:
+            return
+
+        if self._try_step(direction):
+            self._cd_left = self._move_cooldown
+
     def update(self, dt):
         """Advance game state by `dt` seconds. Call once per frame from Main.py."""
         self.elapsed_time += dt
-        self.handle_bci(dt)
+
+        if self.control_mode == "bci":
+            self.handle_bci(dt)

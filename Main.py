@@ -171,18 +171,43 @@ def main():
         for ev in pg.event.get():
             if ev.type == pg.QUIT:
                 running = False
-            elif ev.type == pg.KEYDOWN and ev.key == pg.K_ESCAPE:
-                running = False
+
+            elif ev.type == pg.KEYDOWN:
+                if ev.key == pg.K_ESCAPE:
+                    running = False
+
+                elif ev.key == pg.K_m:
+                    if ctrl.control_mode == "keyboard":
+                        ctrl.control_mode = "bci"
+                    else:
+                        ctrl.control_mode = "keyboard"
+                    print("Control mode:", ctrl.control_mode)
+
+                elif ev.key == pg.K_UP:
+                    ctrl.handle_keyboard("N")
+
+                elif ev.key == pg.K_LEFT:
+                    ctrl.handle_keyboard("W")
+
+                elif ev.key == pg.K_RIGHT:
+                    ctrl.handle_keyboard("E")
+
+                elif ev.key == pg.K_DOWN:
+                    ctrl.handle_keyboard("S")
+                    ctrl.handle_keyboard("S")
 
         ctrl.update(dt)
 
         # draw frame
         ui.draw(
-            maze,
-            ctrl.pos_rc,
-            ctrl.armed_dir,
-            steps=ctrl.step_count,
-            elapsed_s=ctrl.elapsed_time
+            
+    maze,
+    ctrl.pos_rc,
+    ctrl.armed_dir,
+    steps=ctrl.step_count,
+    elapsed_s=ctrl.elapsed_time,
+    control_mode=ctrl.control_mode
+
         )
 
         pg.display.flip()

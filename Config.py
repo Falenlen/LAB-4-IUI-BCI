@@ -31,8 +31,8 @@ MAZE_PATH = "mazes/level0.txt"  # which ASCII maze file to load (see Maze.py)
 WINDOW_W, WINDOW_H = 1280, 720   # starting window size (the game maximizes on top of this)
 MIN_SIDEBAR_PX = 200             # minimum width (px) reserved for the arrow sidebar in UI.py
                                   # -> too small and the arrows/labels get cramped.
-ARROW_SIZE_PX = 36               # fixed size (px) of each sidebar arrow. Unlike MIN_SIDEBAR_PX,
-                                  # this does NOT adjust itself to the window — if you make the
+ARROW_SIZE_PX = 80             # fixed size (px) of each sidebar arrow. Unlike MIN_SIDEBAR_PX,
+ARROW_SPACING_PX = 250               # this does NOT adjust itself to the window — if you make the
                                   # sidebar much narrower/shorter than the default, arrows this
                                   # size may not all fit
 

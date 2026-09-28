@@ -32,7 +32,7 @@ import pygame as pg
 from FlashableIcon import FlashableIcon
 from Config import (
     BG, PANEL, TEXT, CHECKER1, CHECKER2, ARROW_ARMED_TINT, PATH, START, GOAL,
-    FREQUENCIES, SIDEBAR_ORDER, REFRESH_HZ, ARROW_SIZE_PX, ICON_FLICKER_MODE,
+    FREQUENCIES, SIDEBAR_ORDER, REFRESH_HZ, ARROW_SIZE_PX, ARROW_SPACING_PX, ICON_FLICKER_MODE,
 )
 
 
@@ -73,13 +73,17 @@ class UI:
                       for d, f in FREQUENCIES.items()}
 
     # --------------- public API ---------------
-    def draw(self, maze, pos_rc, armed_dir, steps=0, elapsed_s=0.0):
+    def draw(self, maze, pos_rc, armed_dir, steps=0, elapsed_s=0.0, control_mode="keyboard"):
         """Draw one full frame: sidebar, maze, avatar, HUD. Call once per frame."""
+
         # left panel
-        self._draw_sidebar(armed_dir)
+        self._draw_sidebar(armed_dir, control_mode)
+
         # maze area (right)
         self._draw_maze(maze)
+
         self._draw_avatar(pos_rc)
+
         # small HUD (now includes steps + timer)
         self._draw_hud(maze, pos_rc, steps, elapsed_s)
 
@@ -89,7 +93,7 @@ class UI:
         return self.sidebar_px, 0
 
     # --------------- drawing ---------------
-    def _draw_sidebar(self, armed_dir):
+    def _draw_sidebar(self, armed_dir, control_mode):
         """
         Draw the four flickering arrows and their labels in the left panel.
 
@@ -109,7 +113,22 @@ class UI:
         pg.draw.rect(self.surf, PANEL, panel_rect)
         title = self.font.render("Controls", True, TEXT)
         self.surf.blit(title, (12, 10))
+        mode_text = "Mode: KEYBOARD" if control_mode == "bci" else "Mode: BCI"
 
+        mode_img = self.small.render(mode_text, True, TEXT)
+        self.surf.blit(mode_img, (12, 30))
+
+        if control_mode == "bci":
+         instruction1 = "Use arrow"
+         instruction2 = "keys to move."
+        else:
+         instruction1 = "Focus on"
+         instruction2 = "one arrow"
+
+        instr1_img = self.small.render(instruction1, True, TEXT)
+        instr2_img = self.small.render(instruction2, True, TEXT)
+        self.surf.blit(instr1_img, (12, 48))
+        self.surf.blit(instr2_img, (12, 63))
         # 2. where should each arrow go?
         dirs = SIDEBAR_ORDER  # top-to-bottom order; reorder in Config.py to try new layouts
         size, ys = self._layout_arrow_positions(dirs)
@@ -152,9 +171,8 @@ class UI:
         if len(dirs) == 1:
             ys = [int((y_min + y_max) * 0.5)]
         else:
-            ys = [int(y) for y in np.linspace(y_min, y_max, num=len(dirs))]
-
-        return size, ys
+         ys = [int(y) for y in np.linspace(y_min, y_max, num=len(dirs))] 
+         return size, ys
 
     def _make_checker_surface(self, size, phase):
         """
@@ -219,7 +237,7 @@ class UI:
 
         if is_armed:
             pg.draw.polygon(self.surf, ARROW_ARMED_TINT,
-                            [(x + cx - size, y + cy - size) for (x, y) in poly], 3)
+                            [(x + cx - size, y + cy - size) for (x, y) in poly], 5)
 
         if draw_label:
             lbl = self.small.render(d, True, TEXT)
