@@ -129,6 +129,7 @@ def main():
 
     # --- pygame / window ---
     pg.init()
+    pg.mixer.init()
     pg.display.set_caption("BCI Maze")
 
     # Create a normal resizable window (no SCALED to avoid logical scaling)
@@ -180,9 +181,10 @@ def main():
         ui.draw(
             maze,
             ctrl.pos_rc,
-            ctrl.armed_dir,
+            ctrl.feedback_dir,
             steps=ctrl.step_count,
-            elapsed_s=ctrl.elapsed_time
+            elapsed_s=ctrl.elapsed_time,
+            feedback_status=ctrl.feedback_status
         )
 
         pg.display.flip()

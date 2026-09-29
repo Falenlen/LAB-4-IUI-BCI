@@ -73,15 +73,15 @@ class UI:
                       for d, f in FREQUENCIES.items()}
 
     # --------------- public API ---------------
-    def draw(self, maze, pos_rc, armed_dir, steps=0, elapsed_s=0.0):
+    def draw(self, maze, pos_rc, armed_dir, steps=0, elapsed_s=0.0, feedback_status=None):
         """Draw one full frame: sidebar, maze, avatar, HUD. Call once per frame."""
         # left panel
-        self._draw_sidebar(armed_dir)
+        self._draw_sidebar(armed_dir, feedback_status)
         # maze area (right)
         self._draw_maze(maze)
         self._draw_avatar(pos_rc)
         # small HUD (now includes steps + timer)
-        self._draw_hud(maze, pos_rc, steps, elapsed_s)
+        self._draw_hud(maze, pos_rc, steps, elapsed_s, feedback_status, armed_dir)
 
     # --------------- layout helpers ---------------
     def maze_offset(self):
@@ -89,7 +89,7 @@ class UI:
         return self.sidebar_px, 0
 
     # --------------- drawing ---------------
-    def _draw_sidebar(self, armed_dir):
+    def _draw_sidebar(self, armed_dir, feedback_status=None):
         """
         Draw the four flickering arrows and their labels in the left panel.
 
@@ -121,6 +121,7 @@ class UI:
         label_dx = size + 8  # how far right of the arrow the label sits
         for d, cy in zip(dirs, ys):
             self._draw_one_arrow(d, cx, cy, size, frame, is_armed=(armed_dir == d),
+                                  feedback_status=feedback_status,
                                   draw_label=draw_labels, label_dx=label_dx)
 
     def _layout_arrow_positions(self, dirs):
@@ -191,7 +192,7 @@ class UI:
         surf.fill(color)
         return surf
 
-    def _draw_one_arrow(self, d, cx, cy, size, frame, is_armed, draw_label, label_dx):
+    def _draw_one_arrow(self, d, cx, cy, size, frame, is_armed, draw_label, label_dx, feedback_status=None):
         """Draw a single flickering arrow centered at (cx, cy), plus its label/highlight."""
         icon = self.icons.get(d)
         brightness = icon.luminance(frame) if icon is not None else 0.0
@@ -218,8 +219,12 @@ class UI:
         self.surf.blit(fill_surf, rect)
 
         if is_armed:
-            pg.draw.polygon(self.surf, ARROW_ARMED_TINT,
-                            [(x + cx - size, y + cy - size) for (x, y) in poly], 3)
+            tint = (220, 50, 50) if feedback_status == "BLOCKED" else (255, 215, 0)
+            pg.draw.polygon(self.surf, tint,
+                            [(x + cx - size, y + cy - size) for (x, y) in poly], 4)
+            
+            border_box = pg.Rect(cx - size - 4, cy - size - 4, size * 2 + 8, size * 2 + 8)
+            pg.draw.rect(self.surf, tint, border_box, 2, border_radius=4)
 
         if draw_label:
             lbl = self.small.render(d, True, TEXT)
@@ -318,7 +323,7 @@ class UI:
             return [(cx - s, cy), (cx + s // 2, cy - s // 2), (cx + s // 2, cy + s // 2)]
         return [(cx, cy)]
 
-    def _draw_hud(self, maze, pos_rc, steps=0, elapsed_s=0.0):
+    def _draw_hud(self, maze, pos_rc, steps=0, elapsed_s=0.0, feedback_status=None, armed_dir=None):
         """Draw the small "position / goal / steps / time" readout at the bottom of the sidebar."""
         r, c = pos_rc
         # Line 1: position + goal
@@ -329,12 +334,24 @@ class UI:
         secs = int(elapsed_s % 60)
         line2 = f"steps:{steps}   time:{mins:02d}:{secs:02d}"
 
+        if feedback_status == "SUCCESS":
+            line3 = f"Action: {armed_dir} (Moved)"
+            col = (120, 255, 120)
+        elif feedback_status == "BLOCKED":
+            line3 = f"Action: {armed_dir} (Blocked!)"
+            col = (255, 100, 100)
+        else:
+            line3 = "Status: Ready"
+            col = (160, 160, 160)
+
         img1 = self.small.render(line1, True, TEXT)
         img2 = self.small.render(line2, True, TEXT)
+        img3 = self.small.render(line3, True, col)
 
         base_y = self.surf.get_height() - 40  # leave 40px bottom margin
         self.surf.blit(img1, (12, base_y))
         self.surf.blit(img2, (12, base_y + 18))
+        self.surf.blit(img3, (12, base_y + 36))
 
     def draw_eeg_scope(self, eeg_8xN: np.ndarray):
         """

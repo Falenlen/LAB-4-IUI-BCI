@@ -6,7 +6,8 @@ This is a good file to read if you want to understand *when* a move is
 accepted, but most usability tweaks (arrow layout, colors, sizes) belong in
 UI.py and Config.py instead.
 """
-from Config import VEC, WALK_SPEED_PX_S, MOVE_COOLDOWN_S
+import pygame as pg
+from Config import VEC, WALK_SPEED_PX_S, MOVE_COOLDOWN_S, FEEDBACK_DURATION_S
 
 
 class Controller:
@@ -38,6 +39,23 @@ class Controller:
         self.step_count = 0
         self.elapsed_time = 0.0
 
+        self.feedback_dir = None
+        self.feedback_status = None
+        self.feedback_timer = 0.0
+
+
+        if not pg.mixer.get_init():
+            pg.mixer.init()
+
+        try:
+            self.sound_step = pg.mixer.Sound("step.wav")
+            self.sound_wall = pg.mixer.Sound("wall.wav")
+            print("sound files loaded")
+        except Exception as e:
+            print("Could not load sound:", e)
+            self.sound_step = None
+            self.sound_wall = None
+
     def _try_step(self, d):
         """
         Attempt to move one cell in direction `d`.
@@ -65,11 +83,29 @@ class Controller:
         if not d:
             return
 
-        self.armed_dir = d  # remember it so UI.py can highlight the matching arrow
+        self.feedback_dir = d
+        self.feedback_timer = FEEDBACK_DURATION_S
+
         if self._try_step(d):
+            self.feedback_status = "SUCCESS"
+            if self.sound_step:
+                self.sound_step.play()  
             self._cd_left = self._move_cooldown
+        else:
+            self.feedback_status = "BLOCKED"
+            if self.sound_wall:
+                self.sound_wall.play()   
+            self._cd_left = self._move_cooldown * 0.8
+    
+
+
 
     def update(self, dt):
         """Advance game state by `dt` seconds. Call once per frame from Main.py."""
         self.elapsed_time += dt
+        if self.feedback_timer > 0:
+            self.feedback_timer -= dt
+            if self.feedback_timer <= 0:
+                self.feedback_dir = None
+                self.feedback_status = None
         self.handle_bci(dt)
