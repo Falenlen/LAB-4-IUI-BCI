@@ -6,6 +6,7 @@ This is a good file to read if you want to understand *when* a move is
 accepted, but most usability tweaks (arrow layout, colors, sizes) belong in
 UI.py and Config.py instead.
 """
+import pygame as pg
 from Config import VEC, WALK_SPEED_PX_S, MOVE_COOLDOWN_S
 
 
@@ -27,6 +28,8 @@ class Controller:
         self.heading = "E"
         self.armed_dir = None
         self.bci = bci
+        self.paused = True
+        self.control_mode = "keyboard"
 
         # --- move debouncing -------------------------------------------------
         # After a successful step we ignore new directions for
@@ -44,7 +47,7 @@ class Controller:
         Returns True and updates position/heading if that cell is walkable,
         otherwise returns False and leaves the player where it was.
         """
-        dr, dc = VEC[d]
+        dr, dc = VEC[d] 
         nxt = (self.pos_rc[0] + dr, self.pos_rc[1] + dc)
         if self.maze.is_path(nxt):
             self.pos_rc = nxt
@@ -55,10 +58,11 @@ class Controller:
 
     def handle_bci(self, dt):
         """Poll the BCI source (if any) and apply a move if one is ready."""
+        if self.paused:
+            return
         if not self.bci:
             return
         if self._cd_left > 0:
-            self._cd_left -= dt
             return
 
         d = self.bci.poll_direction()  # 'N', 'E', 'S', 'W', or '' (nothing detected)
@@ -69,7 +73,32 @@ class Controller:
         if self._try_step(d):
             self._cd_left = self._move_cooldown
 
+    
+
+    def handle_keyboard(self, direction):
+        """Apply one keyboard press immediately."""
+        if self.paused or self.control_mode != "keyboard" or direction not in VEC:
+            return
+
+        self.armed_dir = direction
+        self._try_step(direction)
+
     def update(self, dt):
         """Advance game state by `dt` seconds. Call once per frame from Main.py."""
+        if self.paused:
+            return
         self.elapsed_time += dt
-        self.handle_bci(dt)
+
+        # Cooldown is shared by keyboard and BCI input.
+        self._cd_left = max(0.0, self._cd_left - dt)
+
+        if self.control_mode == "bci":
+            self.handle_bci(dt)
+
+    def toggle_pause(self):
+        if self.paused:
+            self.paused = False
+        else:
+            self.paused = True
+
+    

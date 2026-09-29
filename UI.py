@@ -32,7 +32,7 @@ import pygame as pg
 from FlashableIcon import FlashableIcon
 from Config import (
     BG, PANEL, TEXT, CHECKER1, CHECKER2, ARROW_ARMED_TINT, PATH, START, GOAL,
-    FREQUENCIES, SIDEBAR_ORDER, REFRESH_HZ, ARROW_SIZE_PX, ICON_FLICKER_MODE,
+    FREQUENCIES, SIDEBAR_ORDER, REFRESH_HZ, ARROW_SIZE_PX, ARROW_SPACING_PX, ICON_FLICKER_MODE,
 )
 
 
@@ -73,15 +73,61 @@ class UI:
                       for d, f in FREQUENCIES.items()}
 
     # --------------- public API ---------------
-    def draw(self, maze, pos_rc, armed_dir, steps=0, elapsed_s=0.0):
+    def draw(self, maze, pos_rc, armed_dir, paused=False, steps=0, elapsed_s=0.0, control_mode="keyboard"):
         """Draw one full frame: sidebar, maze, avatar, HUD. Call once per frame."""
         # left panel
-        self._draw_sidebar(armed_dir)
+        self._draw_sidebar(armed_dir,control_mode)
         # maze area (right)
         self._draw_maze(maze)
         self._draw_avatar(pos_rc)
         # small HUD (now includes steps + timer)
         self._draw_hud(maze, pos_rc, steps, elapsed_s)
+        self._draw_state(paused)
+        self._draw_mode_status(control_mode)
+
+    def _draw_mode_status(self, control_mode):
+        """Draw the active mode and its short instruction in the screen corner."""
+        mode_text = "Mode: BCI" if control_mode == "bci" else "Mode: KEYBOARD"
+        if control_mode == "bci":
+            instruction1 = "Focus on"
+            instruction2 = "one arrow"
+        else:
+            instruction1 = "Use arrow"
+            instruction2 = "keys to move."
+
+        lines = [mode_text, instruction1, instruction2]
+        rendered = [self.small.render(line, True, (255, 255, 255)) for line in lines]
+        x = self.surf.get_width() - max(text.get_width() for text in rendered) - 12
+        for index, text in enumerate(rendered):
+            self.surf.blit(text, (x, 10 + index * 18))
+
+    def _draw_state(self, paused):
+        if not paused:
+            return
+
+        overlay = pg.Surface(self.surf.get_size(), pg.SRCALPHA)
+        overlay.fill((0, 0, 0, 190))
+        self.surf.blit(overlay, (0, 0))
+
+        title = self.font.render("BCI Maze", True, (255, 255, 255))
+        self.surf.blit(title, (self.sidebar_px + 24, 24))
+
+        instructions = [
+            "Focus on a flashing arrow to select a direction.",
+            "The duck moves when a command is detected.",
+            "",
+            "Enter: start/resume",
+            "P: pause/resume",
+            "U: undo last move",
+            "R: restart maze",
+            "W/A/S/D: keyboard fallback",
+        ]
+        rendered = [self.small.render(line, True, (235, 235, 235)) for line in instructions]
+        instruction_x = self.sidebar_px + 24
+        y = 70
+        for text in rendered:
+            self.surf.blit(text, (instruction_x, y))
+            y += 22
 
     # --------------- layout helpers ---------------
     def maze_offset(self):
@@ -89,7 +135,7 @@ class UI:
         return self.sidebar_px, 0
 
     # --------------- drawing ---------------
-    def _draw_sidebar(self, armed_dir):
+    def _draw_sidebar(self, armed_dir, control_mode):
         """
         Draw the four flickering arrows and their labels in the left panel.
 
@@ -219,7 +265,7 @@ class UI:
 
         if is_armed:
             pg.draw.polygon(self.surf, ARROW_ARMED_TINT,
-                            [(x + cx - size, y + cy - size) for (x, y) in poly], 3)
+                        [(x + cx - size, y + cy - size) for (x, y) in poly], 5)
 
         if draw_label:
             lbl = self.small.render(d, True, TEXT)

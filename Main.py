@@ -171,8 +171,35 @@ def main():
         for ev in pg.event.get():
             if ev.type == pg.QUIT:
                 running = False
-            elif ev.type == pg.KEYDOWN and ev.key == pg.K_ESCAPE:
-                running = False
+            
+            elif ev.type == pg.KEYDOWN:
+                if ev.key == pg.K_ESCAPE:
+                    running = False
+
+                elif ev.key == pg.K_RETURN:
+                    ctrl.paused = False
+
+                elif ev.key == pg.K_p:
+                    ctrl.toggle_pause()
+
+                elif ev.key == pg.K_m:
+                    if ctrl.control_mode == "keyboard":
+                        ctrl.control_mode = "bci"
+                    else:
+                        ctrl.control_mode = "keyboard"
+                    print("Control mode:", ctrl.control_mode)
+
+                elif ev.key == pg.K_UP or ev.key == pg.K_w:
+                    ctrl.handle_keyboard("N")
+
+                elif ev.key == pg.K_LEFT or ev.key == pg.K_a:
+                    ctrl.handle_keyboard("W")
+
+                elif ev.key == pg.K_RIGHT or ev.key == pg.K_d:
+                    ctrl.handle_keyboard("E")
+
+                elif ev.key == pg.K_DOWN or ev.key == pg.K_s:
+                    ctrl.handle_keyboard("S")
 
         ctrl.update(dt)
 
@@ -182,7 +209,9 @@ def main():
             ctrl.pos_rc,
             ctrl.armed_dir,
             steps=ctrl.step_count,
-            elapsed_s=ctrl.elapsed_time
+            elapsed_s=ctrl.elapsed_time,
+            control_mode=ctrl.control_mode,
+            paused=ctrl.paused
         )
 
         pg.display.flip()
