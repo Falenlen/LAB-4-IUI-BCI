@@ -129,6 +129,7 @@ def main():
 
     # --- pygame / window ---
     pg.init()
+    pg.mixer.init()
     pg.display.set_caption("BCI Maze")
 
     # Create a normal resizable window (no SCALED to avoid logical scaling)
@@ -176,6 +177,13 @@ def main():
                 if ev.key == pg.K_ESCAPE:
                     running = False
 
+                elif ev.key == pg.K_RETURN:
+                    ctrl.paused = False
+
+                elif ev.key == pg.K_p:
+                    ctrl.toggle_pause()
+
+
                 elif ev.key == pg.K_m:
                     if ctrl.control_mode == "keyboard":
                         ctrl.control_mode = "bci"
@@ -194,20 +202,32 @@ def main():
 
                 elif ev.key == pg.K_DOWN:
                     ctrl.handle_keyboard("S")
+
+                elif ev.key == pg.K_UP or ev.key == pg.K_w:
+                    ctrl.handle_keyboard("N")
+
+                elif ev.key == pg.K_LEFT or ev.key == pg.K_a:
+                    ctrl.handle_keyboard("W")
+
+                elif ev.key == pg.K_RIGHT or ev.key == pg.K_d:
+                    ctrl.handle_keyboard("E")
+
+                elif ev.key == pg.K_DOWN or ev.key == pg.K_s:
                     ctrl.handle_keyboard("S")
 
         ctrl.update(dt)
 
         # draw frame
         ui.draw(
-            
-    maze,
-    ctrl.pos_rc,
-    ctrl.armed_dir,
-    steps=ctrl.step_count,
-    elapsed_s=ctrl.elapsed_time,
-    control_mode=ctrl.control_mode
-
+  
+            maze,
+            ctrl.pos_rc,
+            ctrl.armed_dir,
+            paused=ctrl.paused,
+            steps=ctrl.step_count,
+            elapsed_s=ctrl.elapsed_time,
+            control_mode=ctrl.control_mode,
+            feedback_status=ctrl.feedback_status
         )
 
         pg.display.flip()

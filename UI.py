@@ -73,19 +73,64 @@ class UI:
                       for d, f in FREQUENCIES.items()}
 
     # --------------- public API ---------------
-    def draw(self, maze, pos_rc, armed_dir, steps=0, elapsed_s=0.0, control_mode="keyboard"):
-        """Draw one full frame: sidebar, maze, avatar, HUD. Call once per frame."""
+
+    def draw(self, maze, pos_rc, armed_dir, paused=False, steps=0, elapsed_s=0.0, control_mode="keyboard", feedback_status=None):
 
         # left panel
-        self._draw_sidebar(armed_dir, control_mode)
-
+        self._draw_sidebar(armed_dir, control_mode, feedback_status)
         # maze area (right)
         self._draw_maze(maze)
 
         self._draw_avatar(pos_rc)
 
         # small HUD (now includes steps + timer)
-        self._draw_hud(maze, pos_rc, steps, elapsed_s)
+        self._draw_hud(maze, pos_rc, steps, elapsed_s, feedback_status, armed_dir)
+        self._draw_state(paused)
+        self._draw_mode_status(control_mode)
+
+    def _draw_mode_status(self, control_mode):
+        """Draw the active mode and its short instruction in the screen corner."""
+        mode_text = "Mode: BCI" if control_mode == "bci" else "Mode: KEYBOARD"
+        if control_mode == "bci":
+            instruction1 = "Focus on"
+            instruction2 = "one arrow"
+        else:
+            instruction1 = "Use arrow"
+            instruction2 = "keys to move."
+
+        lines = [mode_text, instruction1, instruction2]
+        rendered = [self.small.render(line, True, (255, 255, 255)) for line in lines]
+        x = self.surf.get_width() - max(text.get_width() for text in rendered) - 12
+        for index, text in enumerate(rendered):
+            self.surf.blit(text, (x, 10 + index * 18))
+
+    def _draw_state(self, paused):
+        if not paused:
+            return
+
+        overlay = pg.Surface(self.surf.get_size(), pg.SRCALPHA)
+        overlay.fill((0, 0, 0, 190))
+        self.surf.blit(overlay, (0, 0))
+
+        title = self.font.render("BCI Maze", True, (255, 255, 255))
+        self.surf.blit(title, (self.sidebar_px + 24, 24))
+
+        instructions = [
+            "Focus on a flashing arrow to select a direction.",
+            "The duck moves when a command is detected.",
+            "",
+            "Enter: start/resume",
+            "P: pause/resume",
+            "U: undo last move",
+            "R: restart maze",
+            "W/A/S/D: keyboard fallback",
+        ]
+        rendered = [self.small.render(line, True, (235, 235, 235)) for line in instructions]
+        instruction_x = self.sidebar_px + 24
+        y = 70
+        for text in rendered:
+            self.surf.blit(text, (instruction_x, y))
+            y += 22
 
     # --------------- layout helpers ---------------
     def maze_offset(self):
@@ -93,7 +138,7 @@ class UI:
         return self.sidebar_px, 0
 
     # --------------- drawing ---------------
-    def _draw_sidebar(self, armed_dir, control_mode):
+    def _draw_sidebar(self, armed_dir, control_mode, feedback_status=None):
         """
         Draw the four flickering arrows and their labels in the left panel.
 
@@ -140,6 +185,7 @@ class UI:
         label_dx = size + 8  # how far right of the arrow the label sits
         for d, cy in zip(dirs, ys):
             self._draw_one_arrow(d, cx, cy, size, frame, is_armed=(armed_dir == d),
+                                feedback_status=feedback_status,
                                   draw_label=draw_labels, label_dx=label_dx)
 
     def _layout_arrow_positions(self, dirs):
@@ -209,7 +255,7 @@ class UI:
         surf.fill(color)
         return surf
 
-    def _draw_one_arrow(self, d, cx, cy, size, frame, is_armed, draw_label, label_dx):
+    def _draw_one_arrow(self, d, cx, cy, size, frame, is_armed, draw_label, label_dx,  feedback_status=None):
         """Draw a single flickering arrow centered at (cx, cy), plus its label/highlight."""
         icon = self.icons.get(d)
         brightness = icon.luminance(frame) if icon is not None else 0.0
@@ -238,6 +284,8 @@ class UI:
         if is_armed:
             pg.draw.polygon(self.surf, ARROW_ARMED_TINT,
                             [(x + cx - size, y + cy - size) for (x, y) in poly], 5)
+            tint = (220, 50, 50) if feedback_status == "BLOCKED" else (255, 215, 0)
+            pg.draw.polygon(self.surf, tint, [(x + cx - size, y + cy - size) for (x, y) in poly], 4)
 
         if draw_label:
             lbl = self.small.render(d, True, TEXT)
@@ -336,7 +384,7 @@ class UI:
             return [(cx - s, cy), (cx + s // 2, cy - s // 2), (cx + s // 2, cy + s // 2)]
         return [(cx, cy)]
 
-    def _draw_hud(self, maze, pos_rc, steps=0, elapsed_s=0.0):
+    def _draw_hud(self, maze, pos_rc, steps=0, elapsed_s=0.0, feedback_status=None, armed_dir=None):
         """Draw the small "position / goal / steps / time" readout at the bottom of the sidebar."""
         r, c = pos_rc
         # Line 1: position + goal
@@ -347,12 +395,24 @@ class UI:
         secs = int(elapsed_s % 60)
         line2 = f"steps:{steps}   time:{mins:02d}:{secs:02d}"
 
+        if feedback_status == "SUCCESS":
+            line3 = f"Action: {armed_dir} (Moved)"
+            col = (100, 255, 100)
+        elif feedback_status == "BLOCKED":
+            line3 = f"Action: {armed_dir} (Blocked!)"
+            col = (255, 80, 80)
+        else:
+            line3 = "Status: Ready"
+            col = (160, 160, 160)
+
         img1 = self.small.render(line1, True, TEXT)
         img2 = self.small.render(line2, True, TEXT)
+        img3 = self.small.render(line3, True, col)
 
-        base_y = self.surf.get_height() - 40  # leave 40px bottom margin
+        base_y = self.surf.get_height() - 100 
         self.surf.blit(img1, (12, base_y))
-        self.surf.blit(img2, (12, base_y + 18))
+        self.surf.blit(img2, (12, base_y + 22))
+        self.surf.blit(img3, (12, base_y + 44))
 
     def draw_eeg_scope(self, eeg_8xN: np.ndarray):
         """
