@@ -378,10 +378,10 @@ class UI:
 
         if feedback_status == "SUCCESS":
             line3 = f"Action: {armed_dir} (Moved)"
-            col = (120, 255, 120)
+            col = (100, 255, 100)
         elif feedback_status == "BLOCKED":
             line3 = f"Action: {armed_dir} (Blocked!)"
-            col = (255, 100, 100)
+            col = (255, 80, 80)
         else:
             line3 = "Status: Ready"
             col = (160, 160, 160)
@@ -390,10 +390,10 @@ class UI:
         img2 = self.small.render(line2, True, TEXT)
         img3 = self.small.render(line3, True, col)
 
-        base_y = self.surf.get_height() - 40  # leave 40px bottom margin
+        base_y = self.surf.get_height() - 100 
         self.surf.blit(img1, (12, base_y))
-        self.surf.blit(img2, (12, base_y + 18))
-        self.surf.blit(img3, (12, base_y + 36))
+        self.surf.blit(img2, (12, base_y + 22))
+        self.surf.blit(img3, (12, base_y + 44))
 
     def draw_eeg_scope(self, eeg_8xN: np.ndarray):
         """

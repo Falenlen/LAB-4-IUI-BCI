@@ -74,6 +74,26 @@ class Controller:
             return True
         return False
 
+    def _apply_move_with_feedback(self,d):
+        self.feedback_dir = d
+        self.armed_dir = d
+        self.feedback_timer = FEEDBACK_DURATION_S
+
+        if self._try_step(d):
+            self.feedback_status = "SUCCESS"
+            if self.sound_step:
+                print("debug triggering step sound")
+                self.sound_step.play()  
+            self._cd_left = self._move_cooldown
+        
+        else:
+            self.feedback_status = "BLOCKED"
+            if self.sound_wall:
+                print("debug triiggering wall sound")
+                self.sound_wall.play()   
+            self._cd_left = self._move_cooldown * 0.8
+
+
     def handle_bci(self, dt):
         """Poll the BCI source (if any) and apply a move if one is ready."""
         if self.paused:
@@ -86,21 +106,7 @@ class Controller:
         d = self.bci.poll_direction()  # 'N', 'E', 'S', 'W', or '' (nothing detected)
         if not d:
             return
-
-        self.feedback_dir = d
-        self.feedback_timer = FEEDBACK_DURATION_S
-
-        if self._try_step(d):
-             self.feedback_status = "SUCCESS"
-        if self.sound_step:
-            self.sound_step.play()  
-            self._cd_left = self._move_cooldown
-        
-        else:
-            self.feedback_status = "BLOCKED"
-            if self.sound_wall:
-                self.sound_wall.play()   
-            self._cd_left = self._move_cooldown * 0.8
+        self._apply_move_with_feedback(d)
 
 
 
@@ -110,9 +116,11 @@ class Controller:
         """Apply one keyboard press immediately."""
         if self.paused or self.control_mode != "keyboard" or direction not in VEC:
             return
+        if self._cd_left > 0:
+            return
 
-        self.armed_dir = direction
-        self._try_step(direction)
+        self._apply_move_with_feedback(direction)
+
 
     def update(self, dt):
         """Advance game state by `dt` seconds. Call once per frame from Main.py."""
