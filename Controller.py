@@ -29,6 +29,7 @@ class Controller:
         self.heading = "E"
         self.armed_dir = None
         self.bci = bci
+        self.confidence = 0.0
 
         self.paused = True
         self.control_mode = "keyboard"
@@ -105,10 +106,11 @@ class Controller:
         if self._cd_left > 0:
             return
 
-        d = self.bci.poll_direction()  # 'N', 'E', 'S', 'W', or '' (nothing detected)
+        d = self.bci.poll_direction()
+        self.confidence = self.bci.last_confidence
+
         if not d:
-            return
-        self._apply_move_with_feedback(d)
+          return
 
 
 

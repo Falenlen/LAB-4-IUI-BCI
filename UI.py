@@ -74,13 +74,13 @@ class UI:
 
     # --------------- public API ---------------
 
-    def draw(self, maze, pos_rc, armed_dir, paused=False, steps=0, elapsed_s=0.0, control_mode="keyboard", feedback_status=None):
+    def draw(self, maze, pos_rc, armed_dir, paused=False, steps=0, elapsed_s=0.0, control_mode="keyboard", feedback_status=None ,  confidence= 0.0):
 
         # left panel
         self._draw_sidebar(armed_dir, control_mode, feedback_status)
         # maze area (right)
         self._draw_maze(maze)
-
+        self._draw_confidence_bar(confidence)
         self._draw_avatar(pos_rc)
 
         # small HUD (now includes steps + timer)
@@ -138,7 +138,7 @@ class UI:
         return self.sidebar_px, 0
 
     # --------------- drawing ---------------
-    def _draw_sidebar(self, armed_dir, control_mode, feedback_status=None):
+    def _draw_sidebar(self, armed_dir, control_mode, feedback_status=None, confidence=0.0):
         """
         Draw the four flickering arrows and their labels in the left panel.
 
@@ -174,6 +174,8 @@ class UI:
         instr2_img = self.small.render(instruction2, True, TEXT)
         self.surf.blit(instr1_img, (12, 48))
         self.surf.blit(instr2_img, (12, 63))
+
+
         # 2. where should each arrow go?
         dirs = SIDEBAR_ORDER  # top-to-bottom order; reorder in Config.py to try new layouts
         size, ys = self._layout_arrow_positions(dirs)
@@ -360,6 +362,44 @@ class UI:
             xx = offx + cc * cp
             pg.draw.line(self.surf, (35, 35, 42), (xx, offy), (xx, offy + maze.rows * cp), 1)
 
+    def _draw_confidence_bar(self, confidence):
+        confidence = max(0.0, min(1.0, confidence))
+
+        # Position: right side, lower-middle area
+        x = self.sidebar_px -220
+        y = self.surf.get_height() - 70
+
+        bar_w = 260
+        bar_h = 18
+
+        label = self.small.render(
+            f"Confidence: {confidence * 100:.0f}%",
+            True,
+            TEXT
+        )
+        self.surf.blit(label, (x, y - 28))
+
+        # Background
+        pg.draw.rect(
+            self.surf,
+            CHECKER2,
+            (x, y, bar_w, bar_h)
+        )
+
+        # Filled part
+        pg.draw.rect(
+            self.surf,
+            ARROW_ARMED_TINT,
+            (x, y, int(bar_w * confidence), bar_h)
+        )
+
+        # Border
+        pg.draw.rect(
+            self.surf,
+            TEXT,
+            (x, y, bar_w, bar_h),
+            1
+        )   
     def _draw_avatar(self, pos_rc):
         """Draw the player avatar centered in its current maze cell."""
         cp = self.cell_px
@@ -369,6 +409,7 @@ class UI:
         cy = offy + r * cp + cp // 2
         rect = self.avatar_img.get_rect(center=(cx, cy))
         self.surf.blit(self.avatar_img, rect)
+
 
     def _arrow_polygon(self, d, center_xy, size):
         """Return the triangle points for an arrow pointing in direction `d`, centered at center_xy."""
