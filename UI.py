@@ -80,13 +80,13 @@ class UI:
         self._draw_sidebar(armed_dir, control_mode, feedback_status)
         # maze area (right)
         self._draw_maze(maze)
-        self._draw_confidence_bar(confidence)
+        # self._draw_confidence_bar(confidence)
         self._draw_avatar(pos_rc)
 
         # small HUD (now includes steps + timer)
         self._draw_hud(maze, pos_rc, steps, elapsed_s, feedback_status, armed_dir)
         self._draw_state(paused)
-        self._draw_mode_status(control_mode)
+        # self._draw_mode_status(control_mode)
 
     def _draw_mode_status(self, control_mode):
         """Draw the active mode and its short instruction in the screen corner."""
@@ -179,48 +179,46 @@ class UI:
         # 2. where should each arrow go?
         dirs = SIDEBAR_ORDER  # top-to-bottom order; reorder in Config.py to try new layouts
         size, ys = self._layout_arrow_positions(dirs)
-        cx = self.sidebar_px // 2
+        cx = int(self.sidebar_px * 0.40)
 
         # 3. draw each one
         frame = getattr(self, "frame_idx", 0)
         draw_labels = self.sidebar_px >= 120  # hide labels if the sidebar is too narrow for them
-        label_dx = size + 8  # how far right of the arrow the label sits
+        label_dx = size + 12
         for d, cy in zip(dirs, ys):
             self._draw_one_arrow(d, cx, cy, size, frame, is_armed=(armed_dir == d),
                                 feedback_status=feedback_status,
                                   draw_label=draw_labels, label_dx=label_dx)
 
     def _layout_arrow_positions(self, dirs):
-        """
-        Work out the y-coordinate of each arrow's center: just space them
-        evenly down whatever vertical room the sidebar has.
-
-        Arrow size is NOT computed here! it's the fixed Config.ARROW_SIZE_PX
-        — so this only has to answer one question: where do the centers go?
-        (If the sidebar is unusually short and ARROW_SIZE_PX doesn't fit,
-        arrows may crowd together or overlap the title/HUD — shrink
-        Config.ARROW_SIZE_PX or grow Config.WINDOW_H/MIN_SIDEBAR_PX.)
-
-        Returns (size, list_of_y_centers) — one y per entry in `dirs`, all
-        sharing the same horizontal center (self.sidebar_px // 2).
-        """
-        size = ARROW_SIZE_PX
         panel_h = self.surf.get_height()
-        top_margin = 44 + size        # below the title, room for the first arrow
-        bottom_margin = 40 + 12 + size  # room for the last arrow + the HUD text
 
-        y_min = top_margin
-        y_max = max(y_min, panel_h - bottom_margin)
+        top_reserved = 45
+        bottom_reserved = 95
 
-        # Always return exactly one y per direction, even if the window is
-        # so short that y_min == y_max — in that case every arrow lands on
-        # the same spot (visually overlapping) rather than some arrows
-        # being dropped, which would make a whole direction disappear.
+        size = ARROW_SIZE_PX
+
+        usable_top = top_reserved + size
+        usable_bottom = panel_h - bottom_reserved - size
+
         if len(dirs) == 1:
-            ys = [int((y_min + y_max) * 0.5)]
+            ys = [(usable_top + usable_bottom) // 2]
         else:
-         ys = [int(y) for y in np.linspace(y_min, y_max, num=len(dirs))] 
-         return size, ys
+            ys = [
+                int(y)
+                for y in np.linspace(
+                    usable_top,
+                    usable_bottom,
+                    num=len(dirs)
+                )
+            ]
+
+        # Extra manual spacing between S and E
+        if len(ys) >= 4:
+            ys[2] -= 8   # move S a bit up
+            ys[3] += 18  # move E a bit down
+
+        return size, ys
 
     def _make_checker_surface(self, size, phase):
         """
@@ -231,8 +229,9 @@ class UI:
         alternating `phase` every frame (see FlashableIcon) is what makes
         the arrow appear to flicker.
         """
-        checker_surf = pg.Surface((size * 2, size * 2))
-        checker_surf.fill((0, 0, 0))
+        checker_surf = pg.Surface((size * 2, size * 2), pg.SRCALPHA)
+        checker_surf.fill((0, 0, 0, 0))
+        
         square = size // 4  # size of each checker cell
         colors = [CHECKER1, CHECKER2] if phase == 0 else [CHECKER2, CHECKER1]
         for row in range(0, size * 2, square):
@@ -253,8 +252,9 @@ class UI:
             int(round(c2 + (c1 - c2) * brightness))
             for c1, c2 in zip(CHECKER1, CHECKER2)
         )
-        surf = pg.Surface((size * 2, size * 2))
-        surf.fill(color)
+        surf = pg.Surface((size * 2, size * 2), pg.SRCALPHA)
+
+        surf.fill((*color, 255))
         return surf
 
     def _draw_one_arrow(self, d, cx, cy, size, frame, is_armed, draw_label, label_dx,  feedback_status=None):
@@ -291,7 +291,19 @@ class UI:
 
         if draw_label:
             lbl = self.small.render(d, True, TEXT)
-            self.surf.blit(lbl, (min(self.sidebar_px - 16, cx + label_dx), cy - 8))
+
+            label_x = cx + label_dx
+
+            # Make sure the complete label stays inside sidebar
+            label_x = min(
+                label_x,
+                self.sidebar_px - lbl.get_width() - 8
+            )
+
+            self.surf.blit(
+                lbl,
+                (label_x, cy - lbl.get_height() // 2)
+            )
 
     def _draw_wall_tile(self, x, y, cp, is_bottom_of_run, is_rightmost_of_run):
         """Draw one wall cell with a simple pseudo-3D "cap + front + side" look."""
@@ -365,19 +377,21 @@ class UI:
     def _draw_confidence_bar(self, confidence):
         confidence = max(0.0, min(1.0, confidence))
 
-        # Position: right side, lower-middle area
-        x = self.sidebar_px -220
-        y = self.surf.get_height() - 70
-
-        bar_w = 260
+        # Inside the sidebar
+        margin = 12
+        x = margin
+        bar_w = max(40, self.sidebar_px - (2 * margin))
         bar_h = 18
+
+        # Put it above the HUD
+        y = self.surf.get_height() - 145
 
         label = self.small.render(
             f"Confidence: {confidence * 100:.0f}%",
             True,
             TEXT
         )
-        self.surf.blit(label, (x, y - 28))
+        self.surf.blit(label, (x, y - 24))
 
         # Background
         pg.draw.rect(
@@ -399,7 +413,8 @@ class UI:
             TEXT,
             (x, y, bar_w, bar_h),
             1
-        )   
+        )
+        
     def _draw_avatar(self, pos_rc):
         """Draw the player avatar centered in its current maze cell."""
         cp = self.cell_px
@@ -425,7 +440,7 @@ class UI:
             return [(cx - s, cy), (cx + s // 2, cy - s // 2), (cx + s // 2, cy + s // 2)]
         return [(cx, cy)]
 
-    def _draw_hud(self, maze, pos_rc, steps=0, elapsed_s=0.0, feedback_status=None, armed_dir=None):
+    def _draw_hud(self, maze, pos_rc, steps=0, elapsed_s=0.0, feedback_status=None, armed_dir=None, confidence=0.0):
         """Draw the small "position / goal / steps / time" readout at the bottom of the sidebar."""
         r, c = pos_rc
         # Line 1: position + goal
@@ -450,10 +465,67 @@ class UI:
         img2 = self.small.render(line2, True, TEXT)
         img3 = self.small.render(line3, True, col)
 
-        base_y = self.surf.get_height() - 100 
+        base_y = self.surf.get_height() - 100
+
+        # Position / goal
         self.surf.blit(img1, (12, base_y))
+
+        # Steps / time
         self.surf.blit(img2, (12, base_y + 22))
-        self.surf.blit(img3, (12, base_y + 44))
+
+        # Status on bottom-left
+        status_y = base_y + 44
+        self.surf.blit(img3, (12, status_y))
+
+        # ---------------- Confidence on bottom-right ----------------
+
+        confidence = max(0.0, min(1.0, confidence))
+
+        bar_w = 110
+        bar_h = 10
+        right_margin = 16
+        gap = 8
+
+        confidence_text = self.small.render(
+            f"Confidence: {confidence * 100:.0f}%",
+            True,
+            TEXT
+        )
+
+        # Bar stays against the right edge of sidebar
+        bar_x = self.sidebar_px - bar_w - right_margin
+        bar_y = status_y + 3
+
+        # Confidence text immediately before the bar
+        confidence_x = bar_x - confidence_text.get_width() - gap
+
+        # Draw confidence text
+        self.surf.blit(
+            confidence_text,
+            (confidence_x, status_y)
+        )
+
+        # Bar background
+        pg.draw.rect(
+            self.surf,
+            CHECKER2,
+            (bar_x, bar_y, bar_w, bar_h)
+        )
+
+        # Filled portion
+        pg.draw.rect(
+            self.surf,
+            ARROW_ARMED_TINT,
+            (bar_x, bar_y, int(bar_w * confidence), bar_h)
+        )
+
+        # Bar border
+        pg.draw.rect(
+            self.surf,
+            TEXT,
+            (bar_x, bar_y, bar_w, bar_h),
+            1
+        )
 
     def draw_eeg_scope(self, eeg_8xN: np.ndarray):
         """

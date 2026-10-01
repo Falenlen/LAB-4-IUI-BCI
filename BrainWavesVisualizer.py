@@ -422,7 +422,7 @@ def main():
         info_freq = StreamInfo(
             name="BCI_FREQ",  # stream name
             type="BCI",  # your choice; "Markers" also fine
-            channel_count=1,
+            channel_count=2,
             nominal_srate=0,  # irregular / event-like
             channel_format=cf_float32,
             source_id="bci_freq_1"
@@ -562,7 +562,7 @@ def main():
 
                             print(f"[lsl] Counter: {consec_ok}")
                             if consec_ok==args.consecutive:
-                                outlet_freq.push_sample([publish_freq])
+                                outlet_freq.push_sample([publish_freq, publish_score])
                                 print(f"[lsl] ----------------- Sent SSVEP: {publish_freq:.3f} Hz")
                                 consec_ok = 0
                                 previous_key = None

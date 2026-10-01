@@ -57,6 +57,7 @@ class BCIListener:
         self._last_snap = ""
         self._stable_count = 0
         self._need = 2  # require 2 consecutive matches
+        self.last_confidence = 0.0
 
         if LSLInlet is None or lsl_resolve_byprop is None:
             print("[BCI] pylsl not available; cannot continue.")
@@ -101,6 +102,10 @@ class BCIListener:
             while sample is not None:
                 if sample and len(sample) >= 1:
                     got = float(sample[0])
+                    if len(sample) >= 2:
+                        self.last_confidence = float(sample[1])
+                    else:
+                        self.last_confidence = 0.0
                 sample, ts = self.inlet.pull_sample(timeout=0.0)
 
             if got is None or not np.isfinite(got):
