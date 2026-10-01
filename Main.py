@@ -172,7 +172,7 @@ def main():
         for ev in pg.event.get():
             if ev.type == pg.QUIT:
                 running = False
-            
+
             elif ev.type == pg.KEYDOWN:
                 if ev.key == pg.K_ESCAPE:
                     running = False
@@ -183,9 +183,10 @@ def main():
                 elif ev.key == pg.K_p:
                     ctrl.toggle_pause()
 
-                elif ev.key == pg.K_r:  # restart
+                elif ev.key == pg.K_r:
                     ctrl.reset()
-                elif ev.key == pg.K_u:  # undo
+
+                elif ev.key == pg.K_u:
                     ctrl.undo()
 
                 elif ev.key == pg.K_m:
@@ -195,22 +196,23 @@ def main():
                         ctrl.control_mode = "keyboard"
                     print("Control mode:", ctrl.control_mode)
 
-                elif ev.key == pg.K_UP or ev.key == pg.K_w:
+                elif ev.key in (pg.K_UP, pg.K_w):
                     ctrl.handle_keyboard("N")
 
-                elif ev.key == pg.K_LEFT or ev.key == pg.K_a:
+                elif ev.key in (pg.K_LEFT, pg.K_a):
                     ctrl.handle_keyboard("W")
 
-                elif ev.key == pg.K_RIGHT or ev.key == pg.K_d:
+                elif ev.key in (pg.K_RIGHT, pg.K_d):
                     ctrl.handle_keyboard("E")
 
-                elif ev.key == pg.K_DOWN or ev.key == pg.K_s:
+                elif ev.key in (pg.K_DOWN, pg.K_s):
                     ctrl.handle_keyboard("S")
 
         ctrl.update(dt)
 
         # draw frame
         ui.draw(
+  
             maze,
             ctrl.pos_rc,
             ctrl.armed_dir,
@@ -218,7 +220,8 @@ def main():
             steps=ctrl.step_count,
             elapsed_s=ctrl.elapsed_time,
             control_mode=ctrl.control_mode,
-            feedback_status=ctrl.feedback_status
+            feedback_status=ctrl.feedback_status,
+            confidence=ctrl.confidence
         )
 
         pg.display.flip()

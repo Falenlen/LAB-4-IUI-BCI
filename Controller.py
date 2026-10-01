@@ -7,6 +7,7 @@ accepted, but most usability tweaks (arrow layout, colors, sizes) belong in
 UI.py and Config.py instead.
 """
 import pygame as pg
+
 from Config import VEC, WALK_SPEED_PX_S, MOVE_COOLDOWN_S, FEEDBACK_DURATION_S
 
 
@@ -28,6 +29,8 @@ class Controller:
         self.heading = "E"
         self.armed_dir = None
         self.bci = bci
+        self.confidence = 0.0
+
         self.paused = True
         self.control_mode = "keyboard"
 
@@ -70,26 +73,37 @@ class Controller:
         dr, dc = VEC[d] 
         nxt = (self.pos_rc[0] + dr, self.pos_rc[1] + dc)
         if self.maze.is_path(nxt):
+            # Save the state BEFORE the move so Undo can actually go back.
+            self.history.append((self.pos_rc, self.heading))
             self.pos_rc = nxt
             self.heading = d
             self.step_count += 1
-            self.history.append((self.pos_rc, self.heading))
             return True
         return False
 
     def undo(self):
+        """Undo the most recent successful movement, if there is one."""
         if self.history:
             self.pos_rc, self.heading = self.history.pop()
             self.step_count = max(0, self.step_count - 1)
+            self.armed_dir = None
+            self.feedback_dir = None
+            self.feedback_status = None
+            self.feedback_timer = 0.0
 
     def reset(self):
-        """Reset player state and history back to start."""
+        """Reset player state and history back to the maze start."""
         self.pos_rc = self.maze.start
         self.heading = "E"
         self.armed_dir = None
         self.history.clear()
         self.step_count = 0
         self.elapsed_time = 0.0
+        self._cd_left = 0.0
+        self.feedback_dir = None
+        self.feedback_status = None
+        self.feedback_timer = 0.0
+        self.confidence = 0.0
 
     def _apply_move_with_feedback(self,d):
         self.feedback_dir = d
@@ -120,14 +134,13 @@ class Controller:
         if self._cd_left > 0:
             return
 
-        d = self.bci.poll_direction()  # 'N', 'E', 'S', 'W', or '' (nothing detected)
+        d = self.bci.poll_direction()
+        self.confidence = self.bci.last_confidence
+
         if not d:
             return
+
         self._apply_move_with_feedback(d)
-
-
-
-    
 
     def handle_keyboard(self, direction):
         """Apply one keyboard press immediately."""
@@ -138,12 +151,12 @@ class Controller:
 
         self._apply_move_with_feedback(direction)
 
-
     def update(self, dt):
         """Advance game state by `dt` seconds. Call once per frame from Main.py."""
         if self.paused:
             return
         self.elapsed_time += dt
+
         if self.feedback_timer > 0:
             self.feedback_timer -= dt
         if self.feedback_timer <= 0:
@@ -162,4 +175,4 @@ class Controller:
         else:
             self.paused = True
 
-    
+   
