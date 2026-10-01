@@ -21,7 +21,7 @@ from Controller import Controller
 
 from pylsl import resolve_byprop as lsl_resolve_byprop, StreamInlet as LSLInlet
 
-from Config import TARGET_FREQS, FREQ_TO_DIR, MAZE_PATH, WINDOW_W, WINDOW_H, MIN_SIDEBAR_PX
+from Config import TARGET_FREQS, FREQ_TO_DIR, MAZE_LEVELS, WINDOW_W, WINDOW_H, MIN_SIDEBAR_PX
 
 
 def nearest_dir_from_freq(f):
@@ -128,8 +128,9 @@ def main():
 
     clock = pg.time.Clock()
 
-    # --- load maze from file (change which maze loads via Config.MAZE_PATH) ---
-    lines = read_ascii_maze(MAZE_PATH)
+    current_level = 0
+
+    lines = read_ascii_maze(MAZE_LEVELS[current_level])
     maze = Maze(lines)
 
     # --- pygame / window ---
@@ -170,7 +171,11 @@ def main():
     ctrl = Controller(maze, cell_px=cell_px, bci=bci)
 
     ui.frame_idx = 0
+    waiting_for_level_change = False
+    game_completed = False
     running = True
+    
+
     while running:
         dt = clock.tick(60) / 1000.0
 
@@ -214,6 +219,81 @@ def main():
                     ctrl.handle_keyboard("S")
 
         ctrl.update(dt)
+        
+        # Level progression
+        if (
+            ctrl.goal_reached
+            and not waiting_for_level_change
+            and not game_completed
+        ):
+            waiting_for_level_change = True
+            print(f"Goal reached on level {current_level + 1}")
+
+        if waiting_for_level_change:
+            goal_sound_playing = (
+                ctrl.sound_goal is not None
+                and ctrl.sound_goal.get_num_channels() > 0
+            )
+
+            # Wait until sound finishes before changing maze
+            if not goal_sound_playing:
+
+                if current_level < len(MAZE_LEVELS) - 1:
+                    current_level += 1
+
+                    print(
+                        f"Loading level {current_level + 1} "
+                        f"of {len(MAZE_LEVELS)}"
+                    )
+
+                    lines = read_ascii_maze(MAZE_LEVELS[current_level])
+                    maze = Maze(lines)
+
+                    # Recalculate layout because the new maze may have
+                    # different dimensions
+                    screen_w, screen_h = surf.get_size()
+
+                    cell_px_h = screen_h // maze.rows
+                    cell_px_w = max(
+                        1,
+                        (screen_w - MIN_SIDEBAR_PX) // maze.cols
+                    )
+                    cell_px = max(
+                        1,
+                        min(cell_px_h, cell_px_w)
+                    )
+
+                    maze_w = maze.cols * cell_px
+                    sidebar_px = max(
+                        MIN_SIDEBAR_PX,
+                        screen_w - maze_w
+                    )
+
+                    # Give the controller the new maze
+                    ctrl.maze = maze
+                    ctrl.cell_px = cell_px
+                    ctrl.reset()
+
+                    # Keep the player's chosen control mode
+                    # instead of forcing keyboard mode again.
+
+                    # Rebuild UI because cell size/sidebar may have changed
+                    ui = UI(
+                        surf,
+                        cell_px=cell_px,
+                        sidebar_px=sidebar_px
+                    )
+                    ui.frame_idx = 0
+
+                    # Automatically start the new level
+                    ctrl.paused = False
+
+                    waiting_for_level_change = False
+                else:
+                    print("All levels completed!")
+                    waiting_for_level_change = False
+                    game_completed = True
+                    # ctrl.paused = True
 
         # draw frame
         ui.draw(
@@ -226,7 +306,10 @@ def main():
             elapsed_s=ctrl.elapsed_time,
             control_mode=ctrl.control_mode,
             feedback_status=ctrl.feedback_status,
-            confidence=ctrl.confidence
+            confidence=ctrl.confidence,
+            game_completed=game_completed,
+            current_level=current_level,
+            total_levels=len(MAZE_LEVELS)
         )
 
         pg.display.flip()

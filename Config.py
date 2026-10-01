@@ -25,11 +25,14 @@ import numpy as np
 # =====================================================================
 
 # --- Maze ---
-#MAZE_PATH = "mazes/level0.txt"
-MAZE_PATH = "mazes/level1.txt" 
-#MAZE_PATH = "mazes/level2.txt" 
-#MAZE_PATH = "mazes/level3.txt"
-#MAZE_PATH = "mazes/dead_emds_maze.txt"    # which ASCII maze file to load (see Maze.py)
+MAZE_LEVELS = [
+    "mazes/level0.txt",
+    "mazes/level1.txt",
+    "mazes/level2.txt",
+    "mazes/level3.txt",
+]
+
+MAZE_PATH = MAZE_LEVELS[0]
 
 # --- Window & layout ---
 WINDOW_W, WINDOW_H = 1280, 720   # starting window size (the game maximizes on top of this)

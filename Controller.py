@@ -30,6 +30,8 @@ class Controller:
         self.armed_dir = None
         self.bci = bci
         self.confidence = 0.0
+        self.goal_reached = False
+        # self.goal_sound_finished = False
 
         self.paused = True
         self.control_mode = "keyboard"
@@ -57,11 +59,13 @@ class Controller:
         try:
             self.sound_step = pg.mixer.Sound("step.wav")
             self.sound_wall = pg.mixer.Sound("wall.wav")
+            self.sound_goal = pg.mixer.Sound("success.wav")
             print("sound files loaded")
         except Exception as e:
             print("Could not load sound:", e)
             self.sound_step = None
             self.sound_wall = None
+            self.sound_goal = None
 
 
     def _try_step(self, d):
@@ -83,6 +87,8 @@ class Controller:
 
     def undo(self):
         """Undo the most recent successful movement, if there is one."""
+        if self.goal_reached:
+            return
         if self.history:
             self.pos_rc, self.heading = self.history.pop()
             self.step_count = max(0, self.step_count - 1)
@@ -104,30 +110,47 @@ class Controller:
         self.feedback_status = None
         self.feedback_timer = 0.0
         self.confidence = 0.0
+        self.goal_reached = False
 
-    def _apply_move_with_feedback(self,d):
+    def _apply_move_with_feedback(self, d):
         self.feedback_dir = d
         self.armed_dir = d
         self.feedback_timer = FEEDBACK_DURATION_S
 
         if self._try_step(d):
-            self.feedback_status = "SUCCESS"
-            if self.sound_step:
-                print("debug triggering step sound")
-                self.sound_step.play()  
+
+            # goal
+            if self.pos_rc == self.maze.goal:
+                self.goal_reached = True
+                self.feedback_status = "GOAL"
+
+                if self.sound_goal:
+                    print("debug triggering goal sound")
+                    self.sound_goal.play()
+
+            # normal successful step
+            else:
+                self.feedback_status = "SUCCESS"
+
+                if self.sound_step:
+                    print("debug triggering step sound")
+                    self.sound_step.play()
+
             self._cd_left = self._move_cooldown
-        
+
         else:
             self.feedback_status = "BLOCKED"
+
             if self.sound_wall:
-                print("debug triiggering wall sound")
-                self.sound_wall.play()   
+                print("debug triggering wall sound")
+                self.sound_wall.play()
+
             self._cd_left = self._move_cooldown * 0.8
 
 
     def handle_bci(self, dt):
         """Poll the BCI source (if any) and apply a move if one is ready."""
-        if self.paused:
+        if self.paused or self.goal_reached:
             return
         if not self.bci:
             return
@@ -144,7 +167,7 @@ class Controller:
 
     def handle_keyboard(self, direction):
         """Apply one keyboard press immediately."""
-        if self.paused or self.control_mode != "keyboard" or direction not in VEC:
+        if self.paused or self.goal_reached or self.control_mode != "keyboard" or direction not in VEC:
             return
         if self._cd_left > 0:
             return
@@ -159,7 +182,7 @@ class Controller:
 
         if self.feedback_timer > 0:
             self.feedback_timer -= dt
-        if self.feedback_timer <= 0:
+        if self.feedback_timer <= 0 and not self.goal_reached:
             self.feedback_dir = None
             self.feedback_status = None
 

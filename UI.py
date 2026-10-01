@@ -74,18 +74,21 @@ class UI:
 
     # --------------- public API ---------------
 
-    def draw(self, maze, pos_rc, armed_dir, paused=False, steps=0, elapsed_s=0.0, control_mode="keyboard", feedback_status=None ,  confidence= 0.0):
+    def draw(self, maze, pos_rc, armed_dir, paused=False, steps=0, elapsed_s=0.0, control_mode="keyboard", feedback_status=None ,  confidence= 0.0, game_completed=False, current_level=0, total_levels=1):
 
         # left panel
-        self._draw_sidebar(armed_dir, control_mode, feedback_status)
+        self._draw_sidebar(armed_dir, control_mode, feedback_status, current_level, total_levels)
         # maze area (right)
         self._draw_maze(maze)
         # self._draw_confidence_bar(confidence)
         self._draw_avatar(pos_rc)
 
         # small HUD (now includes steps + timer)
-        self._draw_hud(maze, pos_rc, steps, elapsed_s, feedback_status, armed_dir)
-        self._draw_state(paused)
+        self._draw_hud(maze, pos_rc, steps, elapsed_s, feedback_status, armed_dir, confidence)
+        if game_completed:
+            self._draw_completion_screen()
+        else:
+            self._draw_state(paused)
         # self._draw_mode_status(control_mode)
 
     def _draw_mode_status(self, control_mode):
@@ -109,28 +112,161 @@ class UI:
             return
 
         overlay = pg.Surface(self.surf.get_size(), pg.SRCALPHA)
-        overlay.fill((0, 0, 0, 190))
+        overlay.fill((0, 0, 0, 205))
         self.surf.blit(overlay, (0, 0))
 
-        title = self.font.render("BCI Maze", True, (255, 255, 255))
-        self.surf.blit(title, (self.sidebar_px + 24, 24))
+        title_font = pg.font.SysFont("consolas", 36, bold=True)
+        section_font = pg.font.SysFont("consolas", 22, bold=True)
+        text_font = pg.font.SysFont("consolas", 19)
+
+        center_x = self.surf.get_width() // 2
+
+        # Title
+
+        title = title_font.render(
+            "BCI Maze",
+            True,
+            (255, 255, 255)
+        )
+
+        self.surf.blit(
+            title,
+            title.get_rect(center=(center_x, 80))
+        )
+
+        # How to play
+
+        how_title = section_font.render(
+            "How to play",
+            True,
+            (255, 215, 0)
+        )
+
+        self.surf.blit(
+            how_title,
+            how_title.get_rect(center=(center_x, 135))
+        )
 
         instructions = [
-            "Focus on a flashing arrow to select a direction.",
-            "The duck moves when a command is detected.",
-            "",
-            "Enter: start/resume",
-            "P: pause/resume",
-            "U: undo last move",
-            "R: restart maze",
-            "W/A/S/D: keyboard fallback",
+            "Guide the duck from the blue start tile to the green goal tile.",
+            "In BCI mode, focus on one flashing arrow to choose a direction.",
+            "In keyboard mode, use WASD or the arrow keys.",
         ]
-        rendered = [self.small.render(line, True, (235, 235, 235)) for line in instructions]
-        instruction_x = self.sidebar_px + 24
-        y = 70
-        for text in rendered:
-            self.surf.blit(text, (instruction_x, y))
-            y += 22
+
+        y = 175
+
+        for line in instructions:
+            text = text_font.render(
+                line,
+                True,
+                (235, 235, 235)
+            )
+
+            self.surf.blit(
+                text,
+                text.get_rect(center=(center_x, y))
+            )
+
+            y += 32
+
+        # Controls
+
+        controls_title = section_font.render(
+            "Controls",
+            True,
+            (255, 215, 0)
+        )
+
+        self.surf.blit(
+            controls_title,
+            controls_title.get_rect(center=(center_x, y + 30))
+        )
+
+        y += 75
+
+        controls = [
+            ("ENTER", "Start / Resume"),
+            ("P",     "Pause / Resume"),
+            ("M",     "Switch Keyboard / BCI mode"),
+            ("U",     "Undo last move"),
+            ("R",     "Restart current maze"),
+            ("ESC",   "Exit"),
+        ]
+
+        # Fixed columns so everything lines up neatly
+        key_x = center_x - 180
+        description_x = center_x - 60
+
+        for key, description in controls:
+            key_text = text_font.render(
+                key,
+                True,
+                (255, 215, 0)
+            )
+
+            description_text = text_font.render(
+                description,
+                True,
+                (235, 235, 235)
+            )
+
+            self.surf.blit(
+                key_text,
+                (key_x - key_text.get_width(), y)
+            )
+
+            self.surf.blit(
+                description_text,
+                (description_x, y)
+            )
+
+            y += 34
+            
+    def _draw_completion_screen(self):
+        """Show a full-screen message after the final maze is completed."""
+
+        overlay = pg.Surface(self.surf.get_size(), pg.SRCALPHA)
+        overlay.fill((0, 0, 0, 210))
+        self.surf.blit(overlay, (0, 0))
+
+        title_font = pg.font.SysFont("consolas", 48, bold=True)
+        message_font = pg.font.SysFont("consolas", 24)
+
+        title = title_font.render(
+            "ALL LEVELS COMPLETED!",
+            True,
+            (255, 215, 0)
+        )
+
+        message = message_font.render(
+            "You reached the goal in every maze!",
+            True,
+            (255, 255, 255)
+        )
+
+        exit_text = message_font.render(
+            "Press ESC to exit",
+            True,
+            (220, 220, 220)
+        )
+
+        center_x = self.surf.get_width() // 2
+        center_y = self.surf.get_height() // 2
+
+        self.surf.blit(
+            title,
+            title.get_rect(center=(center_x, center_y - 50))
+        )
+
+        self.surf.blit(
+            message,
+            message.get_rect(center=(center_x, center_y + 10))
+        )
+
+        self.surf.blit(
+            exit_text,
+            exit_text.get_rect(center=(center_x, center_y + 60))
+        )
 
     # --------------- layout helpers ---------------
     def maze_offset(self):
@@ -138,7 +274,7 @@ class UI:
         return self.sidebar_px, 0
 
     # --------------- drawing ---------------
-    def _draw_sidebar(self, armed_dir, control_mode, feedback_status=None, confidence=0.0):
+    def _draw_sidebar(self, armed_dir, control_mode, feedback_status=None, current_level=0, total_levels=1):
         """
         Draw the four flickering arrows and their labels in the left panel.
 
@@ -162,6 +298,14 @@ class UI:
 
         mode_img = self.small.render(mode_text, True, TEXT)
         self.surf.blit(mode_img, (12, 30))
+        
+        level_text = f"Level: {current_level + 1} / {total_levels}"
+        level_img = self.small.render(
+            level_text,
+            True,
+            (255, 215, 0)
+        )
+        self.surf.blit(level_img, (12, 48))
 
         if control_mode == "bci":
             instruction1 = "Focus on"
@@ -172,8 +316,8 @@ class UI:
 
         instr1_img = self.small.render(instruction1, True, TEXT)
         instr2_img = self.small.render(instruction2, True, TEXT)
-        self.surf.blit(instr1_img, (12, 48))
-        self.surf.blit(instr2_img, (12, 63))
+        self.surf.blit(instr1_img, (12, 66))
+        self.surf.blit(instr2_img, (12, 81))
 
 
         # 2. where should each arrow go?
@@ -451,7 +595,10 @@ class UI:
         secs = int(elapsed_s % 60)
         line2 = f"steps:{steps}   time:{mins:02d}:{secs:02d}"
 
-        if feedback_status == "SUCCESS":
+        if feedback_status == "GOAL":
+            line3 = "Goal reached!"
+            col = (255, 215, 0)
+        elif feedback_status == "SUCCESS":
             line3 = f"Action: {armed_dir} (Moved)"
             col = (100, 255, 100)
         elif feedback_status == "BLOCKED":
