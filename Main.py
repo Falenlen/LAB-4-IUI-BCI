@@ -183,6 +183,11 @@ def main():
                 elif ev.key == pg.K_p:
                     ctrl.toggle_pause()
 
+                elif ev.key == pg.K_r:  # restart
+                    ctrl.reset()
+                elif ev.key == pg.K_u:  # undo
+                    ctrl.undo()
+
                 elif ev.key == pg.K_m:
                     if ctrl.control_mode == "keyboard":
                         ctrl.control_mode = "bci"

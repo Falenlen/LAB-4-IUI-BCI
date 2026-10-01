@@ -121,6 +121,8 @@ class UI:
             "U: undo last move",
             "R: restart maze",
             "W/A/S/D: keyboard fallback",
+            "U: undo",
+            "R: restart"
         ]
         rendered = [self.small.render(line, True, (235, 235, 235)) for line in instructions]
         instruction_x = self.sidebar_px + 24

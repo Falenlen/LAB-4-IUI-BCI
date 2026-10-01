@@ -31,6 +31,8 @@ class Controller:
         self.paused = True
         self.control_mode = "keyboard"
 
+        self.history = []
+
         # --- move debouncing -------------------------------------------------
         # After a successful step we ignore new directions for
         # `_move_cooldown` seconds. This stops a single sustained BCI
@@ -71,8 +73,23 @@ class Controller:
             self.pos_rc = nxt
             self.heading = d
             self.step_count += 1
+            self.history.append((self.pos_rc, self.heading))
             return True
         return False
+
+    def undo(self):
+        if self.history:
+            self.pos_rc, self.heading = self.history.pop()
+            self.step_count = max(0, self.step_count - 1)
+
+    def reset(self):
+        """Reset player state and history back to start."""
+        self.pos_rc = self.maze.start
+        self.heading = "E"
+        self.armed_dir = None
+        self.history.clear()
+        self.step_count = 0
+        self.elapsed_time = 0.0
 
     def _apply_move_with_feedback(self,d):
         self.feedback_dir = d
